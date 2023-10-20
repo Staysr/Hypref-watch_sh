@@ -4,7 +4,7 @@
 # 😊 Make Coding More Happy
 # 👉 监听文件变化自动重启Hyperf
 # Author: 左星辰
-# Version: 3.0.0
+# Version: 3.0.1
 #--------------------------------------------
 
 # 监听目录
@@ -100,8 +100,45 @@ echo -e "\n ================================ \n ${START}\n =====================
 
 # 后台运行并将输出保存到监听日志路径
 nohup ${RUN_CMD} >> ${WATCH_LOG} 2>&1 &
+
+# 颜色设置
+COLOR_ERROR='\033[1;31m' # 红色，用于错误信息
+COLOR_INFO='\033[0m' # 默认颜色，用于INFO
+COLOR_NONE='\033[1;32m' # 绿色，用于没有前缀的行
+
+# 处理日志颜色输出的函数
+colorize_output() {
+    local in_error_block=false
+    local in_info_block=false
+    local last_line=""
+    while IFS= read -r line; do
+        if [[ "$line" == 🐵* || "$line" == 👉* || "$line" == " ================================"* || "$line" == "Affected lines:"* || "$line" == "==============================="* || "$line" == 🔄* || "$line" == "🔄 Restart"* ]]; then
+            echo -e "${COLOR_RESET}${line}"
+        elif [[ "$line" == \[ERROR\]* ]]; then
+            in_error_block=true
+            in_info_block=false
+            if [[ "$last_line" =~ ^[0-9]+$ ]]; then
+                echo -e "\n${COLOR_ERROR}${last_line}\n${line}${COLOR_RESET}"
+                last_line=""
+            else
+                echo -e "\n${COLOR_ERROR}${line}${COLOR_RESET}"
+            fi
+        elif [[ "$line" == \[INFO\]* ]]; then
+            in_error_block=false
+            in_info_block=true
+            echo -e "${COLOR_INFO}${line}${COLOR_RESET}"
+        elif $in_error_block; then
+            echo -e "${COLOR_ERROR}${line}${COLOR_RESET}"
+        elif $in_info_block; then
+            echo -e "${COLOR_NONE}${line}${COLOR_RESET}"
+        else
+            last_line="$line"
+        fi
+    done
+}
+
 #将日志输出到控制台
-tail -f ${WATCH_LOG} &
+tail -f ${WATCH_LOG} | colorize_output &
 
 # 开始监听
 ${FS_WATCH} -Ee ${EXCLUDE_REGX} --event IsFile ${WATCH_DIR} | while read file
